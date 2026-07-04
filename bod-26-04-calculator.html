@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BOD 26-04 Remediation Clock</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  :root{
+    --bg: #0a0e14;
+    --panel: #101623;
+    --panel-2: #141c2c;
+    --line: #223049;
+    --text: #dbe4f0;
+    --text-dim: #7f8fa8;
+    --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+    --tier1: #ff4d4f;
+    --tier1-glow: rgba(255,77,79,0.35);
+    --tier2: #ff8a3d;
+    --tier3: #ffc53d;
+    --tier4: #6dd3a8;
+    --tier5: #5b7ba8;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
+  body{padding:28px 20px 60px;}
+  .wrap{max-width:1180px;margin:0 auto;}
+
+  /* Header */
+  .header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px;border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:22px;}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--tier2);margin:0 0 6px;}
+  h1{font-size:26px;margin:0;font-weight:700;letter-spacing:-0.01em;}
+  .sub{color:var(--text-dim);font-size:13px;margin-top:6px;max-width:560px;line-height:1.5;}
+  .clock{font-family:var(--mono);text-align:right;font-size:12px;color:var(--text-dim);}
+  .clock .now{font-size:20px;color:var(--text);font-weight:600;}
+
+  /* Disclosure banner */
+  .banner{background:linear-gradient(90deg,rgba(255,138,61,0.12),rgba(255,138,61,0.03));border:1px solid rgba(255,138,61,0.35);border-radius:8px;padding:12px 16px;font-size:12.5px;line-height:1.55;color:#f0c9a8;margin-bottom:24px;}
+  .banner b{color:var(--tier2);}
+  .banner a{color:#ffd9b3;}
+
+  .grid{display:grid;grid-template-columns:380px 1fr;gap:20px;}
+  @media(max-width:920px){.grid{grid-template-columns:1fr;}}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;}
+  .panel h2{font-size:13px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin:0 0 16px;font-weight:600;}
+
+  label{display:block;font-size:12px;color:var(--text-dim);margin:14px 0 6px;}
+  label:first-of-type{margin-top:0;}
+  input[type=text], input[type=date], select{
+    width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+    padding:9px 10px;border-radius:6px;font-family:var(--mono);font-size:13px;outline:none;
+  }
+  input:focus, select:focus{border-color:var(--tier2);}
+  .toggle-row{display:flex;gap:8px;margin-top:2px;}
+  .toggle{
+    flex:1;text-align:center;padding:9px 6px;border-radius:6px;border:1px solid var(--line);
+    background:var(--panel-2);color:var(--text-dim);font-size:12.5px;font-weight:600;cursor:pointer;
+    user-select:none;transition:all .12s ease;
+  }
+  .toggle.active{background:rgba(109,211,168,0.12);border-color:var(--tier4);color:var(--tier4);}
+  .toggle.active.warn{background:rgba(255,77,79,0.14);border-color:var(--tier1);color:var(--tier1);}
+
+  .preview{margin-top:20px;padding:14px;border-radius:8px;background:var(--panel-2);border:1px solid var(--line);}
+  .preview .tier-label{font-family:var(--mono);font-weight:700;font-size:15px;}
+  .preview .tier-days{font-size:11px;color:var(--text-dim);margin-top:4px;}
+  .preview .triage{margin-top:8px;font-size:11px;color:var(--tier1);font-weight:600;}
+
+  button.add{
+    width:100%;margin-top:18px;padding:11px;border-radius:7px;border:none;
+    background:var(--tier2);color:#1a0f00;font-weight:700;font-size:13px;cursor:pointer;
+    letter-spacing:0.02em;
+  }
+  button.add:hover{filter:brightness(1.08);}
+
+  /* Queue */
+  .queue-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+  .queue-head h2{margin:0;}
+  .count{font-family:var(--mono);font-size:11px;color:var(--text-dim);}
+
+  .hero-slot{margin-bottom:18px;}
+  .hero{display:flex;gap:18px;align-items:center;background:radial-gradient(circle at 20% 20%, rgba(255,77,79,0.10), transparent 60%);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .ring-wrap{position:relative;width:84px;height:84px;flex:none;}
+  .ring-wrap svg{transform:rotate(-90deg);}
+  .ring-bg{fill:none;stroke:var(--line);stroke-width:7;}
+  .ring-fg{fill:none;stroke-width:7;stroke-linecap:round;transition:stroke-dashoffset .3s;}
+  .ring-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:700;}
+  .hero-body{flex:1;min-width:0;}
+  .hero-cve{font-family:var(--mono);font-weight:700;font-size:15px;}
+  .hero-meta{font-size:12px;color:var(--text-dim);margin-top:3px;}
+  .hero-deadline{font-family:var(--mono);font-size:12.5px;margin-top:6px;}
+  .empty-hero{color:var(--text-dim);font-size:13px;padding:18px;text-align:center;border:1px dashed var(--line);border-radius:10px;}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  thead th{text-align:left;font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-dim);border-bottom:1px solid var(--line);padding:8px 8px;font-weight:600;}
+  tbody td{padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  tbody tr:hover{background:rgba(255,255,255,0.02);}
+  .cve-cell{font-family:var(--mono);font-weight:600;}
+  .badge{display:inline-block;padding:3px 9px;border-radius:100px;font-family:var(--mono);font-size:10.5px;font-weight:700;white-space:nowrap;}
+  .flags{display:flex;gap:5px;flex-wrap:wrap;}
+  .flag{font-family:var(--mono);font-size:9.5px;padding:2px 6px;border-radius:4px;background:var(--panel-2);color:var(--text-dim);border:1px solid var(--line);}
+  .flag.on{color:var(--text);border-color:#3a4a68;}
+  .deadline-cell{font-family:var(--mono);}
+  .overdue{color:var(--tier1);font-weight:700;}
+  .soon{color:var(--tier2);font-weight:700;}
+  .del{background:var(--panel-2);border:1px solid var(--line);color:var(--text-dim);cursor:pointer;font-size:10.5px;font-family:var(--mono);font-weight:600;padding:5px 8px;border-radius:5px;white-space:nowrap;}
+  .del:hover{color:var(--tier1);border-color:var(--tier1);}
+  .empty-queue{text-align:center;padding:34px 10px;color:var(--text-dim);font-size:13px;}
+
+  .ref{margin-top:20px;}
+  .ref-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;}
+  @media(max-width:600px){.ref-grid{grid-template-columns:1fr;}}
+  .ref-row{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--panel-2);border:1px solid var(--line);border-radius:7px;font-size:12px;}
+  .ref-row .rd{font-family:var(--mono);font-weight:700;}
+  footer{margin-top:26px;font-size:11px;color:var(--text-dim);text-align:center;line-height:1.6;}
+  footer a{color:var(--text-dim);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div>
+      <p class="eyebrow">BOD 26-04 &middot; Prioritizing Security Updates Based on Risk</p>
+      <h1>Remediation Clock</h1>
+      <p class="sub">Four-variable risk tiering for patch prioritization &mdash; enter a vulnerability's exposure, KEV status, exploit automation, and technical impact to get its remediation deadline and forensic-triage requirement.</p>
+    </div>
+    <div class="clock">
+      <div id="nowDate">&mdash;</div>
+      <div class="now" id="nowTime">--:--:--</div>
+    </div>
+  </div>
+
+  <div class="banner">
+    <b>Modeled, not verbatim.</b> CISA's site blocks automated retrieval, so the 16-row decision matrix (Table&nbsp;1, Appendix&nbsp;A) below is reconstructed from CISA's published criteria and cross-referenced vendor/press analysis of BOD&nbsp;26-04 (issued June&nbsp;10, 2026) &mdash; not copied from the primary source. The four anchor rules (KEV+total&nbsp;control &rarr; 3 days+triage; exposed+automatable+total&nbsp;control &rarr; 3 days; KEV+partial&nbsp;control &rarr; 14 days; zero factors &rarr; deferred) are stated directly in secondary reporting. The remaining rows are risk-ordered interpolation. Before using this for actual compliance reporting, verify the matrix against the official directive at <a href="https://www.cisa.gov/news-events/directives/bod-26-04-prioritizing-security-updates-based-risk" target="_blank">cisa.gov/BOD-26-04</a> and edit the <code>MATRIX</code> object in this file's source if any row differs.
+  </div>
+
+  <div class="grid">
+
+    <!-- INPUT PANEL -->
+    <div class="panel">
+      <h2>Assess a Vulnerability</h2>
+
+      <label>CVE ID / identifier</label>
+      <input type="text" id="cveId" placeholder="CVE-2026-XXXXX or internal ref">
+
+      <label>Asset / system</label>
+      <input type="text" id="assetName" placeholder="e.g. VPN concentrator - DMZ">
+
+      <label>1. Publicly exposed? <span style="color:var(--text-dim);font-weight:400;">(reachable by unauthenticated/untrusted entities over a public network)</span></label>
+      <div class="toggle-row" data-group="exposed">
+        <div class="toggle" data-val="yes">Yes</div>
+        <div class="toggle" data-val="no">No</div>
+      </div>
+
+      <label style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span>2. In CISA's KEV catalog?</span>
+        <button type="button" id="kevCheckBtn" style="font-family:var(--mono);font-size:10.5px;background:var(--panel-2);border:1px solid var(--line);color:var(--tier2);padding:4px 8px;border-radius:5px;cursor:pointer;white-space:nowrap;">Check KEV catalog</button>
+      </label>
+      <div class="toggle-row" data-group="kev">
+        <div class="toggle" data-val="yes">Yes</div>
+        <div class="toggle" data-val="no">No</div>
+      </div>
+      <div id="kevStatus" style="font-family:var(--mono);font-size:10.5px;margin-top:6px;color:var(--text-dim);min-height:14px;"></div>
+
+      <label>3. Exploit automatable? <span style="color:var(--text-dim);font-weight:400;">(all steps can be scripted end-to-end)</span></label>
+      <div class="toggle-row" data-group="auto">
+        <div class="toggle" data-val="yes">Yes</div>
+        <div class="toggle" data-val="no">No</div>
+      </div>
+
+      <label style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span>4. Technical impact</span>
+        <button type="button" id="vulnrichBtn" style="font-family:var(--mono);font-size:10.5px;background:var(--panel-2);border:1px solid var(--line);color:var(--tier2);padding:4px 8px;border-radius:5px;cursor:pointer;white-space:nowrap;">Auto-fill from Vulnrichment</button>
+      </label>
+      <div class="toggle-row" data-group="impact">
+        <div class="toggle" data-val="total">Total control</div>
+        <div class="toggle" data-val="partial">Partial</div>
+      </div>
+      <div id="vulnrichStatus" style="font-family:var(--mono);font-size:10.5px;margin-top:6px;color:var(--text-dim);min-height:14px;"></div>
+
+      <label>Date identified / added to clock</label>
+      <input type="date" id="dateFound">
+
+      <div class="preview" id="preview">
+        <div class="tier-label" id="pvTier" style="color:var(--text-dim);">Answer all four to see the tier</div>
+        <div class="tier-days" id="pvDays"></div>
+        <div class="triage" id="pvTriage" style="display:none;">+ Mandatory forensic triage before/alongside patching</div>
+      </div>
+
+      <button class="add" id="addBtn">Add to remediation queue</button>
+    </div>
+
+    <!-- QUEUE -->
+    <div class="panel">
+      <div class="queue-head">
+        <h2>Remediation Queue</h2>
+        <span class="count" id="queueCount">0 tracked</span>
+      </div>
+
+      <div class="hero-slot" id="heroSlot"></div>
+
+      <div id="tableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Vulnerability</th>
+              <th>Flags</th>
+              <th>Tier</th>
+              <th>Deadline</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="queueBody"></tbody>
+        </table>
+        <div class="empty-queue" id="emptyMsg">No vulnerabilities tracked yet. Assess one on the left to start the clock.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel ref">
+    <h2>Tier Reference</h2>
+    <div class="ref-grid">
+      <div class="ref-row"><span>Critical &mdash; KEV-listed + total control</span><span class="rd" style="color:var(--tier1);">3 days + triage</span></div>
+      <div class="ref-row"><span>Severe &mdash; exposed, automatable, total control, not yet KEV</span><span class="rd" style="color:var(--tier2);">3 days</span></div>
+      <div class="ref-row"><span>High &mdash; KEV-listed (partial control) or exposed+high-risk combo</span><span class="rd" style="color:var(--tier3);">14 days</span></div>
+      <div class="ref-row"><span>Moderate &mdash; limited exposure or partial-only risk signals</span><span class="rd" style="color:var(--tier4);">60 days</span></div>
+      <div class="ref-row"><span>Low &mdash; not exposed, not KEV, not automatable</span><span class="rd" style="color:var(--tier5);">Next system upgrade</span></div>
+      <div class="ref-row"><span>Timelines are dynamic</span><span class="rd" style="color:var(--text-dim);">Recompute on change</span></div>
+    </div>
+  </div>
+
+  <footer>
+    Deadlines are calendar days, not business days. Removing public exposure relaxes the clock; a KEV addition tightens it &mdash; re-run any tracked item if its exposure or KEV status changes.<br>
+    Source: CISA BOD 26-04, "Prioritizing Security Updates Based on Risk," issued June 10, 2026 &middot; supersedes BOD 19-02 and BOD 22-01.
+  </footer>
+</div>
+
+<script>
+// ---------- Decision matrix ----------
+// Key format: exposed(y/n)-kev(y/n)-auto(y/n)-impact(total/partial)
+// tier: 1=3d+triage, 2=3d, 3=14d, 4=60d, 5=upgrade
+const MATRIX = {
+  'y-y-y-total':1, 'y-y-n-total':1, 'n-y-y-total':1, 'n-y-n-total':1,
+  'y-n-y-total':2,
+  'y-y-y-partial':3, 'y-y-n-partial':3, 'n-y-y-partial':3, 'n-y-n-partial':3,
+  'y-n-y-partial':3, 'y-n-n-total':3,
+  'y-n-n-partial':4, 'n-n-y-total':4, 'n-n-y-partial':4, 'n-n-n-total':4,
+  'n-n-n-partial':5
+};
+const TIERS = {
+  1:{label:'Tier 1 — Critical', days:3, triage:true, color:'var(--tier1)'},
+  2:{label:'Tier 2 — Severe', days:3, triage:false, color:'var(--tier2)'},
+  3:{label:'Tier 3 — High', days:14, triage:false, color:'var(--tier3)'},
+  4:{label:'Tier 4 — Moderate', days:60, triage:false, color:'var(--tier4)'},
+  5:{label:'Tier 5 — Deferred', days:null, triage:false, color:'var(--tier5)'}
+};
+
+let state = { exposed:null, kev:null, auto:null, impact:null };
+let queue = [];
+
+// ---------- clock ----------
+function tickClock(){
+  const n = new Date();
+  document.getElementById('nowDate').textContent = n.toLocaleDateString(undefined,{weekday:'short',year:'numeric',month:'short',day:'numeric'});
+  document.getElementById('nowTime').textContent = n.toLocaleTimeString();
+  renderQueue();
+}
+setInterval(tickClock,1000);
+
+// ---------- toggles ----------
+document.querySelectorAll('.toggle-row').forEach(row=>{
+  const group = row.dataset.group;
+  row.querySelectorAll('.toggle').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      row.querySelectorAll('.toggle').forEach(b=>b.classList.remove('active','warn'));
+      btn.classList.add('active');
+      if((group==='exposed'||group==='kev'||group==='auto') && btn.dataset.val==='yes') btn.classList.add('warn');
+      if(group==='impact' && btn.dataset.val==='total') btn.classList.add('warn');
+      state[group] = btn.dataset.val;
+      updatePreview();
+    });
+  });
+});
+
+// ---------- live KEV catalog check (best-effort) ----------
+// Primary: CISA's official GitHub mirror (cisagov/kev-data) — synced same-day, served with
+// permissive CORS headers by raw.githubusercontent.com, so this is the one most likely to work
+// from a browser. Falls back to the direct CISA feed, then to a manual-check message.
+const KEV_SOURCES = [
+  { name: 'GitHub mirror (cisagov/kev-data)', url: 'https://raw.githubusercontent.com/cisagov/kev-data/develop/known_exploited_vulnerabilities.json' },
+  { name: 'cisa.gov direct feed', url: 'https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json' }
+];
+let kevCache = null;
+let kevCacheSource = null;
+let kevLastSynced = null;
+
+function setKevToggle(val){
+  const row = document.querySelector('.toggle-row[data-group="kev"]');
+  row.querySelectorAll('.toggle').forEach(b=>{
+    b.classList.remove('active','warn');
+    if(b.dataset.val===val){
+      b.classList.add('active');
+      if(val==='yes') b.classList.add('warn');
+    }
+  });
+  state.kev = val;
+  updatePreview();
+}
+
+async function fetchKevCatalog(statusEl){
+  if(kevCache) return kevCache;
+  let lastErr = null;
+  for(const src of KEV_SOURCES){
+    try{
+      if(statusEl){ statusEl.style.color='var(--text-dim)'; statusEl.textContent = `Checking ${src.name}…`; }
+      const res = await fetch(src.url, {method:'GET'});
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const data = await res.json();
+      kevCache = data;
+      kevCacheSource = src.name;
+      kevLastSynced = new Date();
+      return data;
+    }catch(err){
+      lastErr = err;
+      continue; // try next source
+    }
+  }
+  throw lastErr || new Error('All KEV sources unreachable');
+}
+
+document.getElementById('kevCheckBtn').addEventListener('click', async ()=>{
+  const statusEl = document.getElementById('kevStatus');
+  const cveRaw = document.getElementById('cveId').value.trim().toUpperCase();
+  if(!cveRaw){
+    statusEl.style.color = 'var(--tier2)';
+    statusEl.textContent = 'Enter a CVE ID above first (e.g. CVE-2026-10520).';
+    return;
+  }
+
+  try{
+    const data = await fetchKevCatalog(statusEl);
+    const list = data.vulnerabilities || [];
+    const match = list.find(v => (v.cveID||'').toUpperCase() === cveRaw);
+    const syncedStr = kevLastSynced.toLocaleTimeString();
+    if(match){
+      setKevToggle('yes');
+      statusEl.style.color = 'var(--tier1)';
+      statusEl.textContent = `Found in KEV — added ${match.dateAdded}. Via ${kevCacheSource}, synced ${syncedStr}. Toggle set to Yes.`;
+    } else {
+      setKevToggle('no');
+      statusEl.style.color = 'var(--tier4)';
+      statusEl.textContent = `Not in current KEV (${list.length} entries, via ${kevCacheSource}, synced ${syncedStr}). Toggle set to No — recheck later if this CVE is under active research.`;
+    }
+  } catch(err){
+    statusEl.style.color = 'var(--tier2)';
+    statusEl.textContent = `Couldn't reach any KEV source from this browser (network/CORS policy). Check manually at cisa.gov/known-exploited-vulnerabilities-catalog and set the toggle yourself.`;
+  }
+});
+
+// ---------- CISA Vulnrichment auto-fill (Automatable + Technical Impact) ----------
+// Vulnrichment publishes CISA's own SSVC scoring per CVE as JSON in cisagov/vulnrichment,
+// filed under /{year}/{leading digits}xxx/CVE-{year}-{number}.json — e.g.
+// CVE-2025-27066 -> /2025/27xxx/CVE-2025-27066.json
+function vulnrichmentUrl(cve){
+  const m = cve.match(/^CVE-(\d{4})-(\d+)$/i);
+  if(!m) return null;
+  const year = m[1];
+  const num = m[2];
+  const group = Math.floor(parseInt(num,10) / 1000);
+  return `https://raw.githubusercontent.com/cisagov/vulnrichment/develop/${year}/${group}xxx/CVE-${year}-${num}.json`;
+}
+
+function setToggle(group, val){
+  const row = document.querySelector(`.toggle-row[data-group="${group}"]`);
+  row.querySelectorAll('.toggle').forEach(b=>{
+    b.classList.remove('active','warn');
+    if(b.dataset.val===val){
+      b.classList.add('active');
+      if((group==='auto' && val==='yes') || (group==='impact' && val==='total')) b.classList.add('warn');
+    }
+  });
+  state[group] = val;
+  updatePreview();
+}
+
+document.getElementById('vulnrichBtn').addEventListener('click', async ()=>{
+  const statusEl = document.getElementById('vulnrichStatus');
+  const cveRaw = document.getElementById('cveId').value.trim().toUpperCase();
+  const url = vulnrichmentUrl(cveRaw);
+  if(!url){
+    statusEl.style.color = 'var(--tier2)';
+    statusEl.textContent = 'Enter a valid CVE ID above first (format CVE-YYYY-NNNNN).';
+    return;
+  }
+  statusEl.style.color = 'var(--text-dim)';
+  statusEl.textContent = 'Checking CISA Vulnrichment (ADP)…';
+
+  try{
+    const res = await fetch(url);
+    if(res.status === 404){
+      statusEl.style.color = 'var(--tier4)';
+      statusEl.textContent = `CISA hasn't published an ADP/SSVC assessment for ${cveRaw} yet. Set Automatable and Technical Impact manually.`;
+      return;
+    }
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+
+    const adp = (data.containers && data.containers.adp) || [];
+    let ssvc = null, kevInfo = null;
+    adp.forEach(entry=>{
+      (entry.metrics||[]).forEach(m=>{
+        if(m.other && m.other.type === 'ssvc') ssvc = m.other.content;
+        if(m.other && m.other.type === 'kev') kevInfo = m.other.content;
+      });
+    });
+
+    if(!ssvc){
+      statusEl.style.color = 'var(--tier4)';
+      statusEl.textContent = `Found ${cveRaw} but no SSVC scoring block yet. Set Automatable and Technical Impact manually.`;
+      return;
+    }
+
+    const opts = {};
+    (ssvc.options||[]).forEach(o=>Object.assign(opts,o));
+    const auto = (opts['Automatable']||'').toLowerCase();
+    const impact = (opts['Technical Impact']||'').toLowerCase();
+    const exploitation = (opts['Exploitation']||'').toLowerCase();
+
+    if(auto==='yes'||auto==='no') setToggle('auto', auto);
+    if(impact==='total'||impact==='partial') setToggle('impact', impact);
+
+    const parts = [];
+    if(auto) parts.push(`Automatable: ${auto}`);
+    if(impact) parts.push(`Impact: ${impact}`);
+    if(exploitation) parts.push(`Exploitation: ${exploitation}`);
+    if(kevInfo) parts.push(`KEV since ${kevInfo.dateAdded}`);
+
+    statusEl.style.color = 'var(--tier2)';
+    statusEl.textContent = `CISA ADP (${ssvc.timestamp ? ssvc.timestamp.slice(0,10):'n/a'}): ${parts.join(' · ')}. Toggles updated.`;
+    if(kevInfo) setToggle('kev','yes'); // KEV block present in the CVE record itself confirms listing
+  } catch(err){
+    statusEl.style.color = 'var(--tier2)';
+    statusEl.textContent = `Couldn't reach the Vulnrichment mirror from this browser (network/CORS policy). Set Automatable and Technical Impact manually.`;
+  }
+});
+
+function matrixKey(){
+  if(!state.exposed||!state.kev||!state.auto||!state.impact) return null;
+  const e = state.exposed==='yes'?'y':'n';
+  const k = state.kev==='yes'?'y':'n';
+  const a = state.auto==='yes'?'y':'n';
+  return `${e}-${k}-${a}-${state.impact}`;
+}
+
+function computeTier(){
+  const key = matrixKey();
+  if(!key) return null;
+  const tierNum = MATRIX[key];
+  return {num:tierNum, ...TIERS[tierNum]};
+}
+
+function updatePreview(){
+  const t = computeTier();
+  const tierEl = document.getElementById('pvTier');
+  const daysEl = document.getElementById('pvDays');
+  const triageEl = document.getElementById('pvTriage');
+  if(!t){
+    tierEl.style.color='var(--text-dim)';
+    tierEl.textContent='Answer all four to see the tier';
+    daysEl.textContent='';
+    triageEl.style.display='none';
+    return;
+  }
+  tierEl.style.color=t.color;
+  tierEl.textContent=t.label;
+  daysEl.textContent = t.days ? `Remediate within ${t.days} calendar day${t.days===1?'':'s'}` : 'Defer to next scheduled system upgrade';
+  triageEl.style.display = t.triage ? 'block':'none';
+}
+
+// ---------- add to queue ----------
+document.getElementById('addBtn').addEventListener('click', ()=>{
+  const t = computeTier();
+  if(!t){ alert('Answer all four risk questions first.'); return; }
+  const cve = document.getElementById('cveId').value.trim() || 'UNLABELED-' + (queue.length+1);
+  const asset = document.getElementById('assetName').value.trim();
+  const dateVal = document.getElementById('dateFound').value;
+  const startDate = dateVal ? new Date(dateVal+'T00:00:00') : new Date();
+  const deadline = t.days!==null ? new Date(startDate.getTime() + t.days*86400000) : null;
+
+  queue.push({
+    id: Date.now(),
+    cve, asset,
+    exposed: state.exposed, kev: state.kev, auto: state.auto, impact: state.impact,
+    tierNum: t.num, tier: t,
+    startDate: startDate.toISOString(),
+    deadline: deadline ? deadline.toISOString() : null
+  });
+  saveQueue();
+  renderQueue();
+
+  // reset form
+  document.getElementById('cveId').value='';
+  document.getElementById('assetName').value='';
+  document.getElementById('dateFound').value='';
+  document.querySelectorAll('.toggle').forEach(b=>b.classList.remove('active','warn'));
+  state = { exposed:null, kev:null, auto:null, impact:null };
+  updatePreview();
+});
+
+function fmtRemaining(deadline){
+  if(!deadline) return {text:'No deadline — next upgrade', cls:''};
+  const ms = new Date(deadline) - new Date();
+  const overdue = ms < 0;
+  const abs = Math.abs(ms);
+  const d = Math.floor(abs/86400000);
+  const h = Math.floor((abs%86400000)/3600000);
+  const m = Math.floor((abs%3600000)/60000);
+  const s = Math.floor((abs%60000)/1000);
+  const text = `${overdue?'OVERDUE by ':''}${d}d ${h}h ${m}m ${s}s`;
+  const cls = overdue ? 'overdue' : (abs < 86400000 ? 'soon' : '');
+  return {text, cls, overdue};
+}
+
+function renderQueue(){
+  const body = document.getElementById('queueBody');
+  const emptyMsg = document.getElementById('emptyMsg');
+  const heroSlot = document.getElementById('heroSlot');
+  document.getElementById('queueCount').textContent = `${queue.length} tracked`;
+
+  if(queue.length===0){
+    body.innerHTML='';
+    emptyMsg.style.display='block';
+    heroSlot.innerHTML = `<div class="empty-hero">The most urgent item will appear here once you add one.</div>`;
+    return;
+  }
+  emptyMsg.style.display='none';
+
+  const sorted = [...queue].sort((a,b)=>{
+    if(!a.deadline) return 1;
+    if(!b.deadline) return -1;
+    return new Date(a.deadline)-new Date(b.deadline);
+  });
+
+  // hero = most urgent with a deadline
+  const top = sorted.find(x=>x.deadline) || sorted[0];
+  if(top){
+    const totalMs = top.tier.days ? top.tier.days*86400000 : 1;
+    const elapsed = new Date() - new Date(top.startDate);
+    const frac = top.deadline ? Math.min(1, Math.max(0, elapsed/totalMs)) : 0;
+    const r = 34, circ = 2*Math.PI*r;
+    const offset = circ * (1-frac);
+    const rem = fmtRemaining(top.deadline);
+    heroSlot.innerHTML = `
+      <div class="hero">
+        <div class="ring-wrap">
+          <svg width="84" height="84" viewBox="0 0 84 84">
+            <circle class="ring-bg" cx="42" cy="42" r="${r}"></circle>
+            <circle class="ring-fg" cx="42" cy="42" r="${r}" stroke="${rem.overdue?'var(--tier1)':top.tier.color}"
+              stroke-dasharray="${circ}" stroke-dashoffset="${offset}"></circle>
+          </svg>
+          <div class="ring-text" style="color:${rem.overdue?'var(--tier1)':top.tier.color}">${top.tier.days ?? '—'}d</div>
+        </div>
+        <div class="hero-body">
+          <div class="hero-cve">${escapeHtml(top.cve)} ${top.asset?`<span style="color:var(--text-dim);font-weight:500;">— ${escapeHtml(top.asset)}</span>`:''}</div>
+          <div class="hero-meta" style="color:${top.tier.color}">${top.tier.label}${top.tier.triage?' · forensic triage required':''}</div>
+          <div class="hero-deadline ${rem.cls}">${rem.text}</div>
+        </div>
+      </div>`;
+  }
+
+  body.innerHTML = sorted.map(item=>{
+    const rem = fmtRemaining(item.deadline);
+    return `<tr>
+      <td class="cve-cell">${escapeHtml(item.cve)}${item.asset?`<div style="font-weight:400;color:var(--text-dim);font-size:11px;">${escapeHtml(item.asset)}</div>`:''}</td>
+      <td><div class="flags">
+        <span class="flag ${item.exposed==='yes'?'on':''}">EXP</span>
+        <span class="flag ${item.kev==='yes'?'on':''}">KEV</span>
+        <span class="flag ${item.auto==='yes'?'on':''}">AUTO</span>
+        <span class="flag ${item.impact==='total'?'on':''}">${item.impact==='total'?'TOTAL':'PARTIAL'}</span>
+      </div></td>
+      <td><span class="badge" style="background:${item.tier.color}22;color:${item.tier.color};border:1px solid ${item.tier.color}55;">${item.tier.label.split('—')[0].trim()}</span>${item.tier.triage?'<div style="font-size:10px;color:var(--tier1);margin-top:4px;">+ triage</div>':''}</td>
+      <td class="deadline-cell ${rem.cls}">${rem.text}</td>
+      <td><button class="del" onclick="removeItem(${item.id})" title="Remove from queue">Remove ✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function removeItem(id){
+  queue = queue.filter(x=>x.id!==id);
+  saveQueue();
+  renderQueue();
+}
+window.removeItem = removeItem;
+
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ---------- persistence ----------
+async function saveQueue(){
+  try{
+    await window.storage.set('bod2604-queue', JSON.stringify(queue));
+  }catch(e){ console.error('Storage save failed', e); }
+}
+async function loadQueue(){
+  try{
+    const res = await window.storage.get('bod2604-queue');
+    if(res && res.value) queue = JSON.parse(res.value);
+  }catch(e){ /* no saved data yet */ }
+  renderQueue();
+}
+
+tickClock();
+loadQueue();
+</script>
+</body>
+</html>
