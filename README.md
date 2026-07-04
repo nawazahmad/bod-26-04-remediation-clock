@@ -24,4 +24,4 @@ for compliance reporting. See the in-app banner for details, and edit the `MATRI
 object in the source if any row differs from the authoritative table.
 
 ## License
-MIT is common for a tool like this]
+MIT is common for a tool like this
